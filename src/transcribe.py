@@ -10,9 +10,11 @@ pipeline on CPU and retries.
 """
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 import pandas as pd
+from tqdm import tqdm
 
 from src.utils import (
     Paths, done, get_device, get_logger, paths_from_config, read_json,
@@ -117,14 +119,21 @@ def run(cfg: dict, paths: Paths, limit: int | None = None) -> None:
         return
 
     device = get_device(cfg.get("device", "auto"))
+    log.info("transcribe: %d clip(s) to do on %s, model=%s",
+             len(pending), device, t.get("model"))
     asr = _build_pipeline(cfg, device)
     lang = t.get("language", "th")
+    n, i = len(pending), 0
+    t_all = time.perf_counter()
 
-    for wav in wavs:
+    for wav in tqdm(wavs, desc="transcribe", unit="clip"):
         vid = wav.stem
         out_path = paths.asr / f"{vid}.json"
         if done(out_path):
             continue
+        i += 1
+        log.info("[%d/%d] %s - transcribing...", i, n, vid)
+        t0 = time.perf_counter()
         segments: dict[str, list] = {}
         try:
             segments["asr"] = _asr_segments(asr, wav, lang)
@@ -155,8 +164,10 @@ def run(cfg: dict, paths: Paths, limit: int | None = None) -> None:
 
         write_json(out_path, {"video_id": vid, "model": t.get("model"),
                               "segments": segments})
-        log.info("transcribed %s (asr=%d segs)", vid,
-                 len(segments.get("asr", [])))
+        log.info("[%d/%d] %s done in %.1fs (asr=%d segs)", i, n, vid,
+                 time.perf_counter() - t0, len(segments.get("asr", [])))
+    log.info("transcribe finished: %d clip(s) in %.1fs", i,
+             time.perf_counter() - t_all)
 
 
 if __name__ == "__main__":

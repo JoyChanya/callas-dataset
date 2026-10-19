@@ -9,11 +9,23 @@ so we fall back to CPU automatically if the GPU path raises.
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
+
+from tqdm import tqdm
 
 from src.utils import Paths, done, get_device, get_logger, paths_from_config
 
 log = get_logger("diarize")
+
+
+def _progress_hook():
+    """pyannote's live step-by-step hook (segmentation/embeddings/...)."""
+    try:
+        from pyannote.audio.pipelines.utils.hook import ProgressHook
+        return ProgressHook()
+    except Exception:
+        return None
 
 
 def _load_pipeline(cfg: dict):
@@ -45,8 +57,13 @@ def diarize_one(pipe, wav: Path, cfg: dict, out_path: Path) -> None:
     if d.get("max_speakers") is not None:
         kw["max_speakers"] = d["max_speakers"]
 
+    hook = _progress_hook()
     try:
-        diar = pipe(str(wav), **kw)
+        if hook is not None:
+            with hook:
+                diar = pipe(str(wav), hook=hook, **kw)
+        else:
+            diar = pipe(str(wav), **kw)
     except Exception as exc:  # e.g. MPS op not implemented -> retry on cpu
         import torch
 
@@ -68,14 +85,22 @@ def run(cfg: dict, paths: Paths, limit: int | None = None) -> None:
         log.info("nothing to diarize")
         return
 
+    log.info("diarize: %d clip(s) to do", len(pending))
     pipe = _load_pipeline(cfg)
-    for wav in pending:
+    n, i, t_all = len(pending), 0, time.perf_counter()
+    for wav in tqdm(pending, desc="diarize", unit="clip"):
         vid = wav.stem
+        i += 1
+        log.info("[%d/%d] %s - diarizing...", i, n, vid)
+        t0 = time.perf_counter()
         try:
             diarize_one(pipe, wav, cfg, paths.diar / f"{vid}.rttm")
-            log.info("diarized %s", vid)
+            log.info("[%d/%d] %s done in %.1fs", i, n, vid,
+                     time.perf_counter() - t0)
         except Exception as exc:
             log.warning("diarize failed %s: %s", vid, exc)
+    log.info("diarize finished: %d clip(s) in %.1fs", i,
+             time.perf_counter() - t_all)
 
 
 if __name__ == "__main__":

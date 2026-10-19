@@ -1,0 +1,423 @@
+<style>
+  :root {
+    --paper:#F5F7F9; --surface:#FFFFFF; --surface-2:#EEF1F5;
+    --ink:#14171D; --muted:#5B6474; --line:#E1E6EC;
+    --accent:#0C8A99; --accent-ink:#076a76; --accent-soft:#DAEEF0;
+    --scam:#CF4238; --legit:#2E9E5F; --human:#B9790A;
+    --shadow:0 1px 2px rgba(20,23,29,.04),0 8px 24px rgba(20,23,29,.06);
+    --radius:14px;
+    --f-sans:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+    --f-mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --maxw:940px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --paper:#0D1016; --surface:#161B23; --surface-2:#1C222C;
+      --ink:#E9EDF3; --muted:#90A0B4; --line:#262D38;
+      --accent:#34C3D0; --accent-ink:#8FE3EB; --accent-soft:#113038;
+      --scam:#F06B61; --legit:#51C181; --human:#E7AC3E;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="light"]{
+    --paper:#F5F7F9; --surface:#FFFFFF; --surface-2:#EEF1F5;
+    --ink:#14171D; --muted:#5B6474; --line:#E1E6EC;
+    --accent:#0C8A99; --accent-ink:#076a76; --accent-soft:#DAEEF0;
+    --scam:#CF4238; --legit:#2E9E5F; --human:#B9790A;
+    --shadow:0 1px 2px rgba(20,23,29,.04),0 8px 24px rgba(20,23,29,.06);
+  }
+  :root[data-theme="dark"]{
+    --paper:#0D1016; --surface:#161B23; --surface-2:#1C222C;
+    --ink:#E9EDF3; --muted:#90A0B4; --line:#262D38;
+    --accent:#34C3D0; --accent-ink:#8FE3EB; --accent-soft:#113038;
+    --scam:#F06B61; --legit:#51C181; --human:#E7AC3E;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.4);
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--f-sans);line-height:1.55;
+    -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 20px 72px;}
+
+  /* ---------- hero ---------- */
+  .hero{position:relative;overflow:hidden;border-radius:0 0 var(--radius) var(--radius);
+    background:linear-gradient(180deg,var(--surface),var(--paper));
+    border-bottom:1px solid var(--line);margin-bottom:40px;}
+  .hero-inner{max-width:var(--maxw);margin:0 auto;padding:46px 20px 40px;position:relative;z-index:2;}
+  #wave{position:absolute;inset:auto 0 0 0;width:100%;height:120px;z-index:1;opacity:.5;}
+  .eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--accent-ink);font-weight:600;}
+  h1{font-size:clamp(32px,6vw,52px);line-height:1.02;margin:12px 0 6px;
+    letter-spacing:-.02em;font-weight:800;text-wrap:balance;}
+  .lede{font-size:clamp(16px,2.4vw,20px);color:var(--muted);max-width:60ch;margin:0;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px;}
+  .meta a{text-decoration:none;}
+  .tag{font-family:var(--f-mono);font-size:12px;padding:5px 10px;border-radius:999px;
+    border:1px solid var(--line);background:var(--surface);color:var(--muted);
+    display:inline-flex;align-items:center;gap:6px;}
+  .tag b{color:var(--ink);font-weight:600;}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block;}
+
+  /* ---------- section ---------- */
+  .sec{margin-top:52px;}
+  .sec > h2{font-size:13px;font-family:var(--f-mono);letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);margin:0 0 18px;font-weight:600;
+    display:flex;align-items:center;gap:10px;}
+  .sec > h2::after{content:"";flex:1;height:1px;background:var(--line);}
+
+  /* ---------- architecture diagram ---------- */
+  .spine{display:flex;flex-direction:column;align-items:stretch;}
+  .anode{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px 18px;box-shadow:var(--shadow);}
+  .anode h3{margin:0;font-size:16px;letter-spacing:-.01em;}
+  .anode p{margin:4px 0 0;color:var(--muted);font-size:13px;}
+  .anode code{font-family:var(--f-mono);font-size:12px;background:var(--surface-2);padding:1px 6px;border-radius:5px;color:var(--ink);}
+  .role{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;
+    color:var(--accent-ink);font-weight:700;display:block;margin-bottom:6px;}
+  .roles2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media(max-width:560px){.roles2{grid-template-columns:1fr;}}
+
+  .flowlabel{font-family:var(--f-mono);font-size:11px;color:var(--muted);text-align:center;padding:4px 0 0;}
+  .conn{height:22px;width:2px;background:var(--line);margin:2px auto 0;}
+
+  .azone{border:1.5px dashed var(--accent);background:var(--accent-soft);border-radius:var(--radius);padding:14px;}
+  .ztab{font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--accent-ink);font-weight:700;margin-bottom:10px;display:flex;gap:8px;align-items:center;}
+  .orch{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 14px;
+    font-family:var(--f-mono);font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px;
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .orch small{font-weight:400;color:var(--muted);font-family:var(--f-sans);font-size:12px;}
+  .pills{display:flex;flex-wrap:wrap;gap:6px;}
+  .pill{font-family:var(--f-mono);font-size:11.5px;background:var(--surface);border:1px solid var(--line);
+    border-radius:999px;padding:4px 10px;color:var(--muted);}
+  .pill.g{color:var(--accent-ink);border-color:var(--accent);}
+
+  .updown{font-family:var(--f-mono);font-size:11px;color:var(--muted);text-align:center;padding:6px 0 2px;}
+  .services{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media(max-width:560px){.services{grid-template-columns:1fr;}}
+  .svc{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow);}
+  .svc .role{color:var(--human);}
+  .svc.net .role{color:var(--accent-ink);}
+  .svc h3{margin:0;font-size:15px;}
+  .svc p{margin:4px 0 0;color:var(--muted);font-size:13px;}
+
+  .store .tree{font-family:var(--f-mono);font-size:12px;color:var(--muted);margin-top:10px;line-height:1.8;}
+  .store .tree b{color:var(--ink);}
+  .deliver{border-color:var(--accent);}
+  .deliver .names{font-family:var(--f-mono);font-size:12.5px;color:var(--accent-ink);font-weight:600;
+    display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+  .deliver .names span{background:var(--accent-soft);border-radius:6px;padding:3px 9px;}
+
+  /* ---------- pipeline flow ---------- */
+  .phase{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--accent-ink);font-weight:700;margin:26px 0 12px;display:flex;align-items:center;gap:10px;}
+  .phase span{background:var(--accent-soft);padding:3px 9px;border-radius:6px;}
+  .node{display:grid;grid-template-columns:52px 1fr;gap:16px;background:var(--surface);
+    border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);}
+  .num{font-family:var(--f-mono);font-weight:700;font-size:15px;color:var(--accent);
+    background:var(--accent-soft);border-radius:10px;display:flex;align-items:center;justify-content:center;
+    height:40px;width:40px;}
+  .node h3{margin:0 0 4px;font-size:17px;letter-spacing:-.01em;}
+  .node p{margin:7px 0 0;color:var(--muted);font-size:14px;}
+  .io{font-family:var(--f-mono);font-size:12px;margin-top:10px;display:flex;flex-wrap:wrap;
+    align-items:center;gap:7px;color:var(--muted);}
+  .io code{background:var(--surface-2);padding:2px 7px;border-radius:5px;color:var(--ink);white-space:nowrap;}
+  .io .to{color:var(--accent);}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px;}
+  .chip{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.04em;padding:2px 8px;border-radius:999px;
+    border:1px solid var(--line);color:var(--muted);text-transform:uppercase;}
+  .chip.gpu{color:var(--accent-ink);border-color:var(--accent);}
+  .chip.key{color:var(--human);border-color:var(--human);}
+  .chip.you{color:var(--human);border-color:var(--human);background:transparent;}
+
+  .link{height:22px;width:2px;background:var(--line);margin:0 auto;position:relative;}
+  .link::after{content:"▼";position:absolute;bottom:-9px;left:50%;transform:translateX(-50%);
+    color:var(--line);font-size:11px;}
+
+  /* fork: two parallel models */
+  .forklabel{text-align:center;font-family:var(--f-mono);font-size:11.5px;color:var(--muted);margin:6px 0;}
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .pair .node{grid-template-columns:52px 1fr;}
+  @media (max-width:640px){.pair{grid-template-columns:1fr;}}
+
+  /* ---------- outputs ---------- */
+  .files{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;}
+  @media (max-width:640px){.files{grid-template-columns:1fr;}}
+  .file{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;
+    box-shadow:var(--shadow);}
+  .file .name{font-family:var(--f-mono);font-weight:700;font-size:14px;color:var(--accent-ink);}
+  .file p{margin:6px 0 0;color:var(--muted);font-size:13.5px;}
+
+  .legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;}
+  .lchip{font-family:var(--f-mono);font-size:11.5px;padding:4px 10px;border-radius:999px;
+    border:1px solid var(--line);background:var(--surface);}
+  .lchip.scam{color:var(--scam);border-color:var(--scam);}
+  .lchip.none{color:var(--legit);border-color:var(--legit);}
+
+  .note{background:var(--surface-2);border:1px solid var(--line);border-left:3px solid var(--accent);
+    border-radius:10px;padding:16px 18px;color:var(--muted);font-size:13.5px;margin-top:16px;}
+  .note b{color:var(--ink);}
+  footer{margin-top:48px;color:var(--muted);font-size:12.5px;font-family:var(--f-mono);text-align:center;}
+  a{color:var(--accent-ink);}
+</style>
+
+<header class="hero">
+  <canvas id="wave" aria-hidden="true"></canvas>
+  <div class="hero-inner">
+    <div class="eyebrow">Callas · data-collection pipeline</div>
+    <h1>From YouTube clips to a labeled Thai scam-call dataset</h1>
+    <p class="lede">Nine resumable stages turn public call recordings into a clean,
+      PII-masked table of <b>who said what</b> — tagged scam vs not, and by scam type —
+      ready to train a detector.</p>
+    <div class="meta">
+      <span class="tag"><span class="dot"></span><b>9</b>&nbsp;stages</span>
+      <span class="tag"><b>text</b> → is_scam → scam_type</span>
+      <span class="tag">runs on <b>Colab GPU</b></span>
+      <a class="tag" href="https://github.com/JoyChanya/callas-dataset"><b>github.com/JoyChanya/callas-dataset</b></a>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="sec">
+    <h2>System architecture</h2>
+    <div class="spine">
+
+      <div class="anode">
+        <div class="roles2">
+          <div><span class="role">Local · you</span><h3>Developer (Mac)</h3>
+            <p>Edits the pipeline code and pushes to GitHub.</p></div>
+          <div><span class="role">Local · you</span><h3>Reviewer</h3>
+            <p>Corrects labels in <code>review.csv</code> on Drive (stage 8).</p></div>
+        </div>
+      </div>
+
+      <div class="flowlabel">│ git push</div>
+      <div class="conn"></div>
+
+      <div class="anode"><span class="role">Source of truth</span>
+        <h3>GitHub — JoyChanya/callas-dataset</h3>
+        <p>Public repo, code only (no data, no secrets). Colab pulls from here.</p></div>
+
+      <div class="flowlabel">│ git clone / pull</div>
+      <div class="conn"></div>
+
+      <div class="azone">
+        <div class="ztab"><span class="dot"></span>Google Colab · GPU runtime — the engine</div>
+        <div class="orch">▶&nbsp;run_pipeline.py <small>orchestrates 9 stages · installs deps (transformers&lt;5 for timestamps)</small></div>
+        <div class="pills">
+          <span class="pill">search</span><span class="pill">download</span>
+          <span class="pill g">transcribe · GPU</span><span class="pill g">diarize · GPU</span>
+          <span class="pill">segment</span><span class="pill">clean</span>
+          <span class="pill">prelabel</span><span class="pill">export</span>
+        </div>
+      </div>
+
+      <div class="updown">⇅ the runtime calls out to external services ⇅</div>
+      <div class="services">
+        <div class="svc net"><span class="role">External · internet</span>
+          <h3>YouTube</h3><p>yt-dlp pulls best audio + Thai subtitles per clip (stages 1–2).</p></div>
+        <div class="svc"><span class="role">External · gated</span>
+          <h3>Hugging Face Hub</h3><p>Downloads the Thai Whisper + pyannote models. pyannote needs your <b>HF token</b>.</p></div>
+      </div>
+
+      <div class="flowlabel">│ <code>data/</code> mounted here · read &amp; write ⇅</div>
+      <div class="conn"></div>
+
+      <div class="anode store"><span class="role">Persistent storage</span>
+        <h3>Google Drive — MyDrive/callas-data</h3>
+        <p>The runtime symlinks <code>data/</code> to Drive, so every stage's output
+          survives when the Colab session ends (and makes re-runs resumable).</p>
+        <div class="tree">
+          <b>meta/</b> videos.csv · <b>raw/</b> audio + subs · <b>interim/</b> asr · diar · turns · clean<br>
+          <b>review/</b> review.csv → review_done.csv · <b>final/</b> *.csv + stats.md
+        </div>
+      </div>
+
+      <div class="flowlabel">│ stage 9 · export</div>
+      <div class="conn"></div>
+
+      <div class="anode deliver"><span class="role">Deliverable</span>
+        <h3>Final dataset</h3>
+        <p>PII-masked, human-reviewed, train-ready.</p>
+        <div class="names"><span>simple.csv</span><span>turns.csv</span><span>conversations.csv</span><span>stats.md</span></div>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>The pipeline, stage by stage</h2>
+
+    <div class="phase"><span>Collect</span> get the raw audio</div>
+
+    <div class="node">
+      <div class="num">01</div>
+      <div>
+        <h3>Search</h3>
+        <div class="chips"><span class="chip">internet</span></div>
+        <p>Query YouTube with Thai scam keywords (fake police, parcel/OTP, investment…)
+          and a few legitimate-call queries. Keeps only clips of sane length; de-dupes.</p>
+        <div class="io">keywords <span class="to">→</span> <code>data/meta/videos.csv</code></div>
+      </div>
+    </div>
+    <div class="link"></div>
+
+    <div class="node">
+      <div class="num">02</div>
+      <div>
+        <h3>Download</h3>
+        <div class="chips"><span class="chip">internet</span><span class="chip">ffmpeg</span></div>
+        <p>Pull the best audio for each video, convert to <b>16 kHz mono WAV</b>, and
+          grab Thai subtitles if they exist. Raw media stays private (never shared).</p>
+        <div class="io"><code>videos.csv</code> <span class="to">→</span> <code>data/raw/audio/{id}.wav</code></div>
+      </div>
+    </div>
+    <div class="link"></div>
+
+    <div class="phase"><span>Transcribe + separate</span> turn audio into speaker turns</div>
+
+    <div class="forklabel">↓ the same audio feeds two models in parallel ↓</div>
+    <div class="pair">
+      <div class="node">
+        <div class="num">03</div>
+        <div>
+          <h3>Transcribe</h3>
+          <div class="chips"><span class="chip gpu">GPU</span></div>
+          <p>Thai Whisper (large model on Colab) writes down the words, with
+            start/end timestamps per phrase.</p>
+          <div class="io"><span class="to">→</span> <code>interim/asr/{id}.json</code></div>
+        </div>
+      </div>
+      <div class="node">
+        <div class="num">04</div>
+        <div>
+          <h3>Diarize</h3>
+          <div class="chips"><span class="chip gpu">GPU</span><span class="chip key">HF token</span></div>
+          <p>pyannote finds <b>who spoke when</b> — the speaker boundaries that
+            separate the scammer from the victim.</p>
+          <div class="io"><span class="to">→</span> <code>interim/diar/{id}.rttm</code></div>
+        </div>
+      </div>
+    </div>
+    <div class="link"></div>
+
+    <div class="node">
+      <div class="num">05</div>
+      <div>
+        <h3>Segment into turns</h3>
+        <p>Merge the two: assign each transcribed phrase to a speaker by time
+          overlap, then join consecutive same-speaker phrases into one <b>turn</b>.</p>
+        <div class="io"><code>asr</code> + <code>diar</code> <span class="to">→</span> <code>interim/turns/{id}.json</code></div>
+      </div>
+    </div>
+    <div class="link"></div>
+
+    <div class="phase"><span>Clean + label</span> make it safe and tagged</div>
+
+    <div class="node">
+      <div class="num">06</div>
+      <div>
+        <h3>Clean &amp; mask</h3>
+        <p>Normalize Thai text and <b>mask personal data</b> (PDPA): phone →
+          <code>[PHONE]</code>, ID → <code>[ID_CARD]</code>, account →
+          <code>[ACCOUNT]</code>, links → <code>[URL]</code>, names →
+          <code>[NAME]</code>. Org names (bank, post, police) are kept — they signal scams.</p>
+        <div class="io"><span class="to">→</span> <code>interim/clean/{id}.json</code></div>
+      </div>
+    </div>
+    <div class="link"></div>
+
+    <div class="node">
+      <div class="num">07</div>
+      <div>
+        <h3>Pre-label</h3>
+        <p>Keyword rules make a <b>first guess</b>: is this a scam, which type, and
+          which speaker is the scammer. A starting point for the human — never the final label.</p>
+        <div class="io"><span class="to">→</span> <code>data/review/review.csv</code></div>
+      </div>
+    </div>
+    <div class="link"></div>
+
+    <div class="phase"><span>Review + deliver</span> human-checked output</div>
+
+    <div class="node">
+      <div class="num">08</div>
+      <div>
+        <h3>Human review</h3>
+        <div class="chips"><span class="chip you">you</span></div>
+        <p>Open the CSV and correct the labels and text by hand. Drop narration /
+          off-topic turns. This is where accuracy comes from — ASR is rough on phone audio.</p>
+        <div class="io"><code>review.csv</code> <span class="to">→</span> <code>review_done.csv</code></div>
+      </div>
+    </div>
+    <div class="link"></div>
+
+    <div class="node">
+      <div class="num">09</div>
+      <div>
+        <h3>Export</h3>
+        <p>Combine the reviewed labels into the final dataset files plus a stats
+          report. Your edits win over the machine's guesses.</p>
+        <div class="io"><span class="to">→</span> <code>data/final/*.csv</code></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>What you get</h2>
+    <div class="files">
+      <div class="file"><div class="name">turns.csv</div>
+        <p>One row per speaker turn — the main file: text, role, timing, labels, source.</p></div>
+      <div class="file"><div class="name">conversations.csv</div>
+        <p>One row per call — every turn joined as <code>[ROLE] text</code>, with call-level labels.</p></div>
+      <div class="file"><div class="name">simple.csv</div>
+        <p>Just <code>text, is_scam, scam_type</code> — ready for WangchanBERTa / TF-IDF.</p></div>
+      <div class="file"><div class="name">stats.md</div>
+        <p>Counts of videos, turns, hours, and the scam-vs-not class balance.</p></div>
+    </div>
+    <div class="legend">
+      <span class="lchip scam">fake_authority</span>
+      <span class="lchip scam">phishing_otp</span>
+      <span class="lchip scam">investment</span>
+      <span class="lchip scam">lottery_prize</span>
+      <span class="lchip scam">romance</span>
+      <span class="lchip scam">other_scam</span>
+      <span class="lchip none">none (legit)</span>
+    </div>
+    <div class="note"><b>Privacy &amp; copyright.</b> Raw audio and unmasked text never leave
+      the private working folder. The released dataset contains only video id, URL, timestamps,
+      masked text, and labels — personal data is stripped before export.</div>
+  </section>
+
+  <footer>Callas dataset builder · resumable · Python 3.12 · yt-dlp + Whisper + pyannote + PyThaiNLP</footer>
+</div>
+
+<script>
+(function(){
+  var c=document.getElementById('wave');if(!c)return;
+  var ctx=c.getContext('2d');var dpr=Math.min(window.devicePixelRatio||1,2);
+  var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  function accent(){return getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#0C8A99';}
+  function size(){c.width=c.clientWidth*dpr;c.height=c.clientHeight*dpr;}
+  size();window.addEventListener('resize',size);
+  var bars=90;
+  function draw(t){
+    ctx.clearRect(0,0,c.width,c.height);
+    var w=c.width,h=c.height,bw=w/bars,col=accent();
+    ctx.fillStyle=col;
+    for(var i=0;i<bars;i++){
+      var phase=reduce?1.2:t/650;
+      var amp=Math.abs(Math.sin(i*0.35+phase))*0.6+Math.abs(Math.sin(i*0.11-phase*0.7))*0.4;
+      var bh=Math.max(2*dpr,amp*h*0.85);
+      ctx.globalAlpha=0.25+amp*0.5;
+      var x=i*bw+bw*0.25,bwi=bw*0.5;
+      ctx.fillRect(x,h-bh,bwi,bh);
+    }
+    ctx.globalAlpha=1;
+  }
+  if(reduce){draw(0);}else{(function loop(t){draw(t);requestAnimationFrame(loop);})(0);}
+})();
+</script>

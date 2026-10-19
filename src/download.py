@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 import yt_dlp
+from tqdm import tqdm
 
 from src.utils import (
     Paths, cookiefile, done, get_logger, paths_from_config, video_url,
@@ -96,7 +97,8 @@ def run(cfg: dict, paths: Paths, limit: int | None = None) -> None:
     sleep_s = dl.get("sleep_s", 2.0)
 
     todo = df if limit is None else df.head(limit)
-    for i, row in todo.iterrows():
+    log.info("download: %d video(s) to check", len(todo))
+    for i, row in tqdm(todo.iterrows(), total=len(todo), desc="download", unit="vid"):
         vid = row["video_id"]
         try:
             res = download_one(vid, cfg, paths)
