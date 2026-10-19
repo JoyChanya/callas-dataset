@@ -20,19 +20,14 @@ youtube:
 search:
   targets:                        # how many clips to keep per source
     youtube: 20
-    tiktok: 20
+    tiktok: 0                      # TikTok off. Set >0 + fill tiktok_sources
+                                   # (needs youtube.cookiefile) to re-enable.
   max_per_query: 50               # YouTube results fetched per query (then trimmed to target)
   duration_min_s: 30
   duration_max_s: 1800            # 30 min
   sleep_s: 1.0
   manual_urls_file: data/meta/manual_urls.txt
-  # TikTok has no keyword search in yt-dlp. List hashtag/user/video pages here
-  # (flat-expanded). Edit these to Thai scam tags you want. TikTok on Colab
-  # usually needs youtube.cookiefile set (see top of this file).
-  tiktok_sources:
-    - "https://www.tiktok.com/tag/แก๊งคอลเซ็นเตอร์"
-    - "https://www.tiktok.com/tag/มิจฉาชีพ"
-    - "https://www.tiktok.com/tag/คอลเซ็นเตอร์"
+  tiktok_sources: []              # TikTok hashtag/user/video pages (disabled)
   queries:
     scam:
       - "แกล้งแก๊งคอลเซ็นเตอร์"
