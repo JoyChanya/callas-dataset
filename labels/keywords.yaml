@@ -1,0 +1,77 @@
+# Keyword rules for pre-labeling (stage 7). Reviewed by human afterwards.
+# Each scam_type lists Thai trigger words/phrases. Matching is substring on
+# the cleaned turn text. Order matters only for tie-breaking (first wins).
+
+scam_types:
+  fake_authority:        # impersonates police / bank / customs / DSI
+    - "ตำรวจ"
+    - "สภ."
+    - "ปปง"
+    - "ฟอกเงิน"
+    - "บัญชีม้า"
+    - "คดี"
+    - "หมายจับ"
+    - "ดีเอสไอ"
+    - "กรมสอบสวน"
+    - "อายัดบัญชี"
+    - "บัญชีปลอดภัย"
+  phishing_otp:          # OTP / link / app / parcel
+    - "OTP"
+    - "รหัส"
+    - "ลิงก์"
+    - "ลิ้ง"
+    - "กดลิงก์"
+    - "ติดตั้งแอป"
+    - "พัสดุ"
+    - "ตกค้าง"
+    - "DHL"
+    - "ไปรษณีย์"
+    - "เลขพัสดุ"
+  investment:            # high returns / fees before withdrawal
+    - "ลงทุน"
+    - "ผลตอบแทน"
+    - "กำไร"
+    - "หุ้น"
+    - "คริปโต"
+    - "เทรด"
+    - "ถอนเงินไม่ได้"
+    - "ค่าภาษีก่อนถอน"
+  lottery_prize:         # fake prize requiring a fee
+    - "รางวัล"
+    - "โชคดี"
+    - "ถูกรางวัล"
+    - "ค่าธรรมเนียม"
+    - "ลุ้นโชค"
+    - "ของรางวัล"
+  romance:               # emotional then money for emergency
+    - "ที่รัก"
+    - "แฟน"
+    - "ฉุกเฉิน"
+    - "โอนให้หน่อย"
+    - "ติดด่าน"
+    - "ศุลกากร"
+    - "ส่งของขวัญ"
+
+# Generic scam markers — if any hit but no type above matched -> other_scam
+generic_scam:
+  - "โอนเงิน"
+  - "เลขบัญชี"
+  - "อย่าบอกใคร"
+  - "รีบ"
+  - "ภายในวันนี้"
+  - "ยืนยันตัวตน"
+
+# Speaker-role hints (applied per turn text, weak signal only)
+roles:
+  scammer:
+    - "เจ้าหน้าที่"
+    - "แจ้งว่า"
+    - "กรุณาโอน"
+    - "ยืนยัน"
+    - "ท่านมีคดี"
+  victim:
+    - "ไม่เข้าใจ"
+    - "จริงเหรอ"
+    - "ทำไม"
+    - "ไม่มีเงิน"
+    - "กลัว"

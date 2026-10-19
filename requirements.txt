@@ -1,0 +1,25 @@
+# Python 3.11 or 3.12 (NOT 3.14 — torch/pyannote have no wheels yet)
+# system dep: ffmpeg  (brew install ffmpeg)
+
+# --- light: search + download + export ---
+yt-dlp>=2024.1.0
+pandas>=2.0
+pyyaml>=6.0
+webvtt-py>=0.4.6
+tqdm>=4.66
+python-dotenv>=1.0
+
+# --- Thai NLP: clean/mask ---
+pythainlp>=5.0
+python-crfsuite>=0.9      # backend for pythainlp thainer NER (name masking)
+
+# --- heavy: transcribe + diarize (install when you reach stage 3) ---
+torch>=2.2
+transformers>=4.40
+accelerate>=0.30
+pyannote.audio>=3.1
+
+# --- optional ---
+gradio>=4.0        # review app
+openai>=1.0        # only to call a LOCAL vLLM endpoint for --llm prelabel
+pytest>=8.0        # tests

@@ -1,0 +1,97 @@
+# Callas — YouTube Thai scam-call dataset. All pipeline settings live here.
+
+project:
+  name: callas-dataset
+  seed: 42
+
+paths:
+  data_dir: data          # subdirs created automatically
+
+device: auto              # auto | cuda | mps | cpu   (auto = cuda>mps>cpu)
+log_level: INFO
+
+youtube:
+  # If search/download hits "Sign in to confirm you're not a bot" (common on
+  # Colab/cloud IPs), export a cookies.txt from a logged-in browser and put the
+  # path here. Leave empty otherwise.
+  cookiefile: ""
+
+# ---------------- Stage 1: search ----------------
+search:
+  max_per_query: 50
+  duration_min_s: 30
+  duration_max_s: 1800            # 30 min
+  sleep_s: 1.0
+  manual_urls_file: data/meta/manual_urls.txt
+  queries:
+    scam:
+      - "แกล้งแก๊งคอลเซ็นเตอร์"
+      - "ป่วนแก๊งคอลเซ็นเตอร์"
+      - "อัดเสียงแก๊งคอลเซ็นเตอร์"
+      - "เสียงจริงมิจฉาชีพโทรมา"
+      - "คุยกับมิจฉาชีพ"
+      - "แก๊งคอลเซ็นเตอร์ อ้างตำรวจ"
+      - "แก๊งคอลเซ็นเตอร์ พัสดุตกค้าง"
+      - "มิจฉาชีพ โทรหลอก OTP"
+      - "หลอกลงทุน คลิปเสียง"
+      - "โทรแจ้งถูกรางวัล มิจฉาชีพ"
+    legit:
+      - "ตัวอย่างบทสนทนาทางโทรศัพท์ ภาษาไทย"
+      - "บทสนทนา call center ธนาคาร"
+      - "โทรศัพท์ติดต่อลูกค้า ตัวอย่าง"
+
+# ---------------- Stage 2: download ----------------
+download:
+  sleep_s: 2.0
+  audio_sample_rate: 16000
+  audio_channels: 1
+  subtitle_langs: ["th"]
+  write_manual_subs: true
+  write_auto_subs: true
+  retries: 3
+  ffmpeg_path: ffmpeg            # or absolute path
+
+# ---------------- Stage 3: transcribe ----------------
+transcribe:
+  # medium = runs on 8GB M1 (rough on phone audio). On Colab GPU use the large
+  # model via CLI:  --model biodatlab/whisper-th-large-v3-combined  (WER ~6.6)
+  model: biodatlab/whisper-th-medium-combined
+  chunk_length_s: 0          # 0 = sequential long-form (accurate timestamps,
+                             #     anti-hallucination). >0 = fast chunked.
+  batch_size: 8              # only used when chunk_length_s > 0
+  language: th
+  also_parse_youtube_subs: true
+
+# ---------------- Stage 4: diarize ----------------
+diarize:
+  model: pyannote/speaker-diarization-3.1
+  min_speakers: 2
+  max_speakers: 4
+
+# ---------------- Stage 5: segment ----------------
+segment:
+  min_turn_s: 0.5
+  merge_gap_s: 0.75              # merge same-speaker segments within this gap
+
+# ---------------- Stage 6: clean & mask ----------------
+clean:
+  normalize: true
+  mask_phone: true
+  mask_id_card: true
+  mask_account: true
+  mask_url: true
+  mask_person_name: true
+  ner_engine: thainer            # pythainlp NER engine
+
+# ---------------- Stage 7: prelabel ----------------
+prelabel:
+  method: rules                  # rules | llm
+  keywords_file: labels/keywords.yaml
+  llm:                           # only used when method=llm (local vLLM)
+    base_url: http://localhost:8000/v1
+    model: ""
+    api_key: EMPTY
+
+# ---------------- Stage 9: export ----------------
+export:
+  bom: true                      # UTF-8 BOM so Thai shows in Excel
