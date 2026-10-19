@@ -22,7 +22,7 @@ TYPE_ORDER = ["fake_authority", "phishing_otp", "investment",
 
 REVIEW_COLUMNS = [
     # identity + content
-    "id", "video_id", "url", "turn_index", "speaker", "start", "end",
+    "id", "video_id", "url", "source", "turn_index", "speaker", "start", "end",
     "text", "text_raw",
     # machine pre-labels
     "pre_speaker_role", "pre_is_scam", "pre_scam_type", "pre_is_after_onset",
@@ -97,10 +97,12 @@ def run(cfg: dict, paths: Paths, use_llm: bool = False,
     p = cfg.get("prelabel", {})
     kw = load_keywords(p.get("keywords_file", "labels/keywords.yaml"))
 
-    url_map = {}
+    url_map, source_map = {}, {}
     if paths.videos_csv.exists():
         vdf = pd.read_csv(paths.videos_csv, dtype={"video_id": str})
         url_map = dict(zip(vdf["video_id"], vdf["url"]))
+        if "source" in vdf.columns:
+            source_map = dict(zip(vdf["video_id"], vdf["source"]))
 
     clean_files = sorted(paths.clean.glob("*.json"))
     if limit:
@@ -124,6 +126,7 @@ def run(cfg: dict, paths: Paths, use_llm: bool = False,
             rows.append({
                 "id": f"{vid}_{ti:03d}" if ti is not None else vid,
                 "video_id": vid, "url": url_map.get(vid, video_url(vid)),
+                "source": source_map.get(vid, ""),
                 "turn_index": ti, "speaker": t.get("speaker"),
                 "start": t.get("start"), "end": t.get("end"),
                 "text": t.get("text"), "text_raw": t.get("text_raw"),

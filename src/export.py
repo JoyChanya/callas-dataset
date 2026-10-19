@@ -73,7 +73,7 @@ def _effective_rows(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(out, columns=TURNS_COLUMNS)
 
 
-def _conversations(turns: pd.DataFrame, durations: dict) -> pd.DataFrame:
+def _conversations(turns: pd.DataFrame, durations: dict, sources: dict) -> pd.DataFrame:
     convs = []
     for vid, g in turns.groupby("video_id", sort=False):
         g = g.sort_values("turn_index")
@@ -84,7 +84,8 @@ def _conversations(turns: pd.DataFrame, durations: dict) -> pd.DataFrame:
         scam_type = max(set(nz), key=nz.count) if nz else "none"
         onset_rows = g[g["is_after_onset"] == 1]["turn_index"]
         onset = int(onset_rows.min()) if len(onset_rows) else None
-        convs.append({"video_id": vid, "url": g["url"].iloc[0], "text": text,
+        convs.append({"video_id": vid, "source": sources.get(vid, ""),
+                      "url": g["url"].iloc[0], "text": text,
                       "is_scam": is_scam, "scam_type": scam_type,
                       "n_turns": len(g), "scam_onset_turn": onset,
                       "duration_s": durations.get(vid)})
@@ -110,6 +111,11 @@ def _stats_md(videos_n, conv: pd.DataFrame, turns: pd.DataFrame,
     lines.append("## scam vs not-scam (conversations)")
     lines.append(f"- scam: {int((conv['is_scam'] == 1).sum())}")
     lines.append(f"- not scam: {int((conv['is_scam'] == 0).sum())}")
+    if "source" in conv.columns:
+        lines.append("")
+        lines.append("## conversations by source")
+        for src, cnt in conv["source"].value_counts().items():
+            lines.append(f"- {src or 'unknown'}: {int(cnt)}")
     return "\n".join(lines) + "\n"
 
 
@@ -118,14 +124,16 @@ def run(cfg: dict, paths: Paths) -> None:
     df, reviewed = _review_df(paths)
 
     durations: dict = {}
+    sources: dict = {}
     if paths.videos_csv.exists():
         vdf = pd.read_csv(paths.videos_csv, dtype={"video_id": str})
         for _, r in vdf.iterrows():
             d = r.get("duration_s")
             durations[r["video_id"]] = None if _blank(d) else float(d)
+            sources[r["video_id"]] = "" if _blank(r.get("source")) else r.get("source")
 
     turns = _effective_rows(df)
-    conv = _conversations(turns, durations)
+    conv = _conversations(turns, durations, sources)
     simple = conv[["text", "is_scam", "scam_type"]].copy()
 
     turns.to_csv(paths.final / "turns.csv", index=False, encoding=enc)

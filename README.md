@@ -77,6 +77,22 @@ python run_pipeline.py --stage diarize --device cuda
 > If YouTube shows a bot-check on Colab, set `youtube.cookiefile` in
 > `config.yaml` (see the optional cookies cell in the notebook).
 
+### Sources: YouTube + TikTok
+`search.targets` sets how many clips to keep per source (default 20 + 20).
+
+- **YouTube** — keyword search works out of the box (`search.queries`).
+- **TikTok** — yt-dlp has **no keyword search**, and TikTok pages need
+  **login cookies** (without them you get `No working app info is available`).
+  To collect TikTok clips:
+  1. Export a `cookies.txt` from a browser logged in to tiktok.com
+     (a "Get cookies.txt" extension), and set `youtube.cookiefile` to its path.
+  2. Then either list hashtag/user pages in `search.tiktok_sources`, **or**
+     (most reliable) paste ~20 TikTok video URLs into
+     `data/meta/manual_urls.txt`, one per line.
+
+Each row in `videos.csv` is tagged `source = youtube | tiktok`, carried through
+to `conversations.csv` and `stats.md`.
+
 ---
 
 ## 2. Pipeline

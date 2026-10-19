@@ -51,7 +51,7 @@ def _to_wav(src: Path, dst: Path, sr: int, ch: int, ffmpeg: str) -> None:
                    stderr=subprocess.DEVNULL)
 
 
-def download_one(video_id: str, cfg: dict, paths: Paths) -> dict:
+def download_one(video_id: str, url: str, cfg: dict, paths: Paths) -> dict:
     dl = cfg.get("download", {})
     wav = paths.raw_audio / f"{video_id}.wav"
     result = {"status": "done", "has_manual_subs": False, "has_auto_subs": False}
@@ -60,8 +60,9 @@ def download_one(video_id: str, cfg: dict, paths: Paths) -> dict:
         result["status"] = "exists"
         return result
 
+    target = url or video_url(video_id)  # TikTok/YouTube URL from videos.csv
     with yt_dlp.YoutubeDL(_ydl_opts(dl, paths, cookiefile(cfg))) as ydl:
-        info = ydl.extract_info(video_url(video_id), download=True)
+        info = ydl.extract_info(target, download=True)
 
     # subtitle availability (from metadata, independent of what downloaded)
     result["has_manual_subs"] = "th" in (info.get("subtitles") or {})
@@ -101,7 +102,7 @@ def run(cfg: dict, paths: Paths, limit: int | None = None) -> None:
     for i, row in tqdm(todo.iterrows(), total=len(todo), desc="download", unit="vid"):
         vid = row["video_id"]
         try:
-            res = download_one(vid, cfg, paths)
+            res = download_one(vid, row.get("url") or "", cfg, paths)
             df.at[i, "status"] = res["status"]
             df.at[i, "has_manual_subs"] = res["has_manual_subs"]
             df.at[i, "has_auto_subs"] = res["has_auto_subs"]
