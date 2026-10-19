@@ -124,6 +124,12 @@
     align-items:center;gap:7px;color:var(--muted);}
   .io code{background:var(--surface-2);padding:2px 7px;border-radius:5px;color:var(--ink);white-space:nowrap;}
   .io .to{color:var(--accent);}
+  .spec{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:12px 0 0;
+    font-family:var(--f-mono);font-size:11.5px;border-top:1px dashed var(--line);padding-top:11px;}
+  .spec dt{color:var(--accent-ink);font-weight:700;white-space:nowrap;}
+  .spec dd{margin:0;color:var(--muted);line-height:1.5;}
+  .spec dd code{background:var(--surface-2);padding:1px 5px;border-radius:4px;color:var(--ink);}
+  @media(max-width:560px){.spec{grid-template-columns:1fr;gap:2px;}.spec dt{margin-top:6px;}}
   .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px;}
   .chip{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.04em;padding:2px 8px;border-radius:999px;
     border:1px solid var(--line);color:var(--muted);text-transform:uppercase;}
@@ -261,6 +267,12 @@
         <p>Query YouTube with Thai scam keywords (fake police, parcel/OTP, investment…)
           and a few legitimate-call queries. Keeps only clips of sane length; de-dupes.</p>
         <div class="io">keywords <span class="to">→</span> <code>data/meta/videos.csv</code></div>
+        <dl class="spec">
+          <dt>tool</dt><dd><code>yt-dlp</code> with <code>extract_flat</code> — pulls metadata only, no media</dd>
+          <dt>method</dt><dd><code>ytsearchN:&lt;query&gt;</code> per Thai keyword (10 scam + 3 legit queries)</dd>
+          <dt>filter</dt><dd>duration 30–1800&nbsp;s · de-dupe by <code>video_id</code> · trim to <code>targets.youtube=20</code></dd>
+          <dt>resumable</dt><dd>new ids appended to existing <code>videos.csv</code>; a <code>source</code> column tags each row</dd>
+        </dl>
       </div>
     </div>
     <div class="link"></div>
@@ -273,6 +285,12 @@
         <p>Pull the best audio for each video, convert to <b>16 kHz mono WAV</b>, and
           grab Thai subtitles if they exist. Raw media stays private (never shared).</p>
         <div class="io"><code>videos.csv</code> <span class="to">→</span> <code>data/raw/audio/{id}.wav</code></div>
+        <dl class="spec">
+          <dt>audio</dt><dd><code>yt-dlp</code> <code>bestaudio</code> → <code>ffmpeg -ac 1 -ar 16000</code> = 16&nbsp;kHz mono WAV (Whisper's native rate)</dd>
+          <dt>subs</dt><dd><code>writesubtitles</code> + <code>writeautomaticsub</code>, lang <code>th</code>, VTT; records <code>has_manual/auto_subs</code></dd>
+          <dt>polite</dt><dd><code>sleep_s</code> between hits · <code>retries=3</code> · failures logged, run continues</dd>
+          <dt>resumable</dt><dd>skips a clip if its <code>.wav</code> already exists; raw media stays git-ignored</dd>
+        </dl>
       </div>
     </div>
     <div class="link"></div>
@@ -289,6 +307,13 @@
           <p>Thai Whisper (large model on Colab) writes down the words, with
             start/end timestamps per phrase.</p>
           <div class="io"><span class="to">→</span> <code>interim/asr/{id}.json</code></div>
+          <dl class="spec">
+            <dt>model</dt><dd><code>biodatlab/whisper-th-large-v3-combined</code> — Thai fine-tuned Whisper large-v3 (WER ≈ 6.6)</dd>
+            <dt>runtime</dt><dd>HF <code>transformers</code> ASR pipeline · <code>fp16</code> on CUDA (fp32/CPU fallback)</dd>
+            <dt>decode</dt><dd>sequential long-form (<code>chunk_length_s=0</code>) → real segment timestamps, not one blob</dd>
+            <dt>anti-loop</dt><dd><code>no_repeat_ngram_size=3</code>, temperature fallback 0→1.0, compression &amp; logprob gates kill "โอ้ โอ้…" hallucinations</dd>
+            <dt>note</dt><dd>transformers&nbsp;5.x drops timestamps → pinned <code>&lt;5</code></dd>
+          </dl>
         </div>
       </div>
       <div class="node">
@@ -299,6 +324,13 @@
           <p>pyannote finds <b>who spoke when</b> — the speaker boundaries that
             separate the scammer from the victim.</p>
           <div class="io"><span class="to">→</span> <code>interim/diar/{id}.rttm</code></div>
+          <dl class="spec">
+            <dt>model</dt><dd><code>pyannote/speaker-diarization-3.1</code></dd>
+            <dt>steps</dt><dd><code>segmentation-3.0</code> → speaker embeddings → agglomerative clustering</dd>
+            <dt>speakers</dt><dd><code>min/max_speakers = 2–4</code> (config; news clips add an anchor)</dd>
+            <dt>auth</dt><dd>needs <code>HF_TOKEN</code> + accepted gated terms · CUDA, auto CPU-fallback</dd>
+            <dt>output</dt><dd>RTTM — one line per speaker interval (<code>start</code>, <code>dur</code>, <code>SPEAKER_xx</code>)</dd>
+          </dl>
         </div>
       </div>
     </div>
@@ -311,6 +343,13 @@
         <p>Merge the two: assign each transcribed phrase to a speaker by time
           overlap, then join consecutive same-speaker phrases into one <b>turn</b>.</p>
         <div class="io"><code>asr</code> + <code>diar</code> <span class="to">→</span> <code>interim/turns/{id}.json</code></div>
+        <dl class="spec">
+          <dt>align</dt><dd>each ASR segment → the speaker whose RTTM intervals have max time-overlap (fallback: nearest midpoint)</dd>
+          <dt>merge</dt><dd>consecutive same-speaker segments within <code>merge_gap_s=0.75</code> → one <b>turn</b></dd>
+          <dt>drop</dt><dd>turns shorter than <code>min_turn_s=0.5</code> or empty</dd>
+          <dt>fallback</dt><dd>no RTTM (no token) → everything becomes one speaker, pipeline still runs</dd>
+          <dt>output</dt><dd><code>[{turn_index, speaker, start, end, text}]</code></dd>
+        </dl>
       </div>
     </div>
     <div class="link"></div>
@@ -326,6 +365,12 @@
           <code>[ACCOUNT]</code>, links → <code>[URL]</code>, names →
           <code>[NAME]</code>. Org names (bank, post, police) are kept — they signal scams.</p>
         <div class="io"><span class="to">→</span> <code>interim/clean/{id}.json</code></div>
+        <dl class="spec">
+          <dt>normalize</dt><dd><code>pythainlp.util.normalize</code> + whitespace collapse</dd>
+          <dt>regex mask</dt><dd>ordered: <code>[URL]</code> → <code>[PHONE]</code> (+66/0…) → <code>[ID_CARD]</code> (13 digits) → <code>[ACCOUNT]</code> (10–12)</dd>
+          <dt>NER</dt><dd>PyThaiNLP <code>thainer</code> (CRF / <code>python-crfsuite</code>) → <code>PERSON</code> = <code>[NAME]</code>; org names kept (scam signal)</dd>
+          <dt>safety</dt><dd>unmasked <code>text_raw</code> kept only in git-ignored <code>interim/</code> for reviewers (PDPA)</dd>
+        </dl>
       </div>
     </div>
     <div class="link"></div>
@@ -337,6 +382,12 @@
         <p>Keyword rules make a <b>first guess</b>: is this a scam, which type, and
           which speaker is the scammer. A starting point for the human — never the final label.</p>
         <div class="io"><span class="to">→</span> <code>data/review/review.csv</code></div>
+        <dl class="spec">
+          <dt>rules</dt><dd>substring match of <code>labels/keywords.yaml</code> on each turn</dd>
+          <dt>type</dt><dd>scam_type = most keyword hits (tie → priority order); generic markers only → <code>other_scam</code></dd>
+          <dt>roles</dt><dd>scammer = speaker with most scam-content hits · onset = first turn carrying a scam keyword</dd>
+          <dt>optional</dt><dd><code>--llm</code>: local vLLM (OpenAI-compatible) returns JSON <code>{is_scam, scam_type, …}</code></dd>
+        </dl>
       </div>
     </div>
     <div class="link"></div>
@@ -351,6 +402,11 @@
         <p>Open the CSV and correct the labels and text by hand. Drop narration /
           off-topic turns. This is where accuracy comes from — ASR is rough on phone audio.</p>
         <div class="io"><code>review.csv</code> <span class="to">→</span> <code>review_done.csv</code></div>
+        <dl class="spec">
+          <dt>fill</dt><dd><code>speaker_role</code> · <code>is_scam</code> · <code>scam_type</code> · <code>keep</code> · <code>text_corrected</code> · <code>notes</code></dd>
+          <dt>drop</dt><dd>mark <code>narrator</code> or <code>keep=0</code> → excluded at export</dd>
+          <dt>format</dt><dd>UTF-8 <b>with BOM</b> so Thai renders in Excel; edit, save as <code>review_done.csv</code></dd>
+        </dl>
       </div>
     </div>
     <div class="link"></div>
@@ -362,6 +418,12 @@
         <p>Combine the reviewed labels into the final dataset files plus a stats
           report. Your edits win over the machine's guesses.</p>
         <div class="io"><span class="to">→</span> <code>data/final/*.csv</code></div>
+        <dl class="spec">
+          <dt>coalesce</dt><dd>human columns override the machine <code>pre_*</code> guesses; <code>narrator</code>/<code>keep=0</code> rows dropped</dd>
+          <dt>files</dt><dd><code>turns.csv</code> (per turn) · <code>conversations.csv</code> (per call, + <code>source</code>) · <code>simple.csv</code> (train-ready)</dd>
+          <dt>report</dt><dd><code>stats.md</code>: videos · turns · hours · scam/not + by-source balance</dd>
+          <dt>encoding</dt><dd>UTF-8 with BOM</dd>
+        </dl>
       </div>
     </div>
   </section>

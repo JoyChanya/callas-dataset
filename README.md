@@ -11,6 +11,33 @@ detection). Later combined with synthetic dialogues and existing datasets
 
 ---
 
+## Quick mode — one clip at a time (`process_one.py`)
+
+Hand-pick a clip, get its speaker-labeled transcript. No search, no batch.
+
+```bash
+python process_one.py "https://www.youtube.com/watch?v=XXXX" \
+    --device cuda --model biodatlab/whisper-th-large-v3-combined
+python process_one.py "<url>" --no-diarize     # transcript only, 1 speaker
+```
+
+Downloads the audio → transcribes (Thai Whisper) → diarizes (who spoke when) →
+prints the conversation and saves `data/out/{id}.txt` + `.json`:
+
+```
+# https://www.youtube.com/watch?v=XXXX
+speakers: 2   turns: 18
+scam guess: is_scam=1 type=phishing_otp   likely scammer: Speaker A
+
+[0.0-6.2]  Speaker A: สวัสดีค่ะ ที่นี่ไปรษณีย์ไทย คุณมีพัสดุ...
+[6.2-9.8]  Speaker B: มีอะไรให้ช่วยครับ...
+```
+
+Who-speaks-to-whom needs an **HF token** (diarization); without it you still get
+the transcript as one speaker. Easiest in Colab: **`callas_one_clip.ipynb`**.
+
+---
+
 ## 1. Setup
 
 ### Python (IMPORTANT)
