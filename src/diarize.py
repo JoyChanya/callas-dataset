@@ -37,10 +37,11 @@ def _load_pipeline(cfg: dict):
         raise RuntimeError("HF_TOKEN not set (needed for pyannote). See .env.example")
 
     d = cfg.get("diarize", {})
-    pipe = Pipeline.from_pretrained(
-        d.get("model", "pyannote/speaker-diarization-3.1"),
-        use_auth_token=token,
-    )
+    model = d.get("model", "pyannote/speaker-diarization-3.1")
+    try:  # newer pyannote.audio uses token=; older used use_auth_token=
+        pipe = Pipeline.from_pretrained(model, token=token)
+    except TypeError:
+        pipe = Pipeline.from_pretrained(model, use_auth_token=token)
     device = get_device(cfg.get("device", "auto"))
     try:
         pipe.to(torch.device(device))

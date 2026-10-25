@@ -22,6 +22,8 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import subprocess
+import tempfile
 import time
 from pathlib import Path
 
@@ -42,18 +44,57 @@ def _fmt(t) -> str:
     return f"[{a:.1f}-{b:.1f}] " if b is not None else f"[{a:.1f}] "
 
 
-def _after_audio(vid, wav, url, cfg, paths, do_diarize) -> dict:
-    """Shared tail: transcribe -> diarize -> turns -> speaker labels -> hint."""
-    # 2. transcribe
-    device = get_device(cfg.get("device", "auto"))
-    asr = transcribe._build_pipeline(cfg, device)
-    log.info("transcribing...")
-    t0 = time.perf_counter()
-    asr_segs = transcribe._asr_segments(asr, wav, cfg.get("transcribe", {}).get("language", "th"))
-    log.info("transcribed in %.1fs (%d segments)", time.perf_counter() - t0, len(asr_segs))
-    asr_json = {"video_id": vid, "segments": {"asr": asr_segs}}
+def _merge_diar(diar: list, gap: float, min_dur: float) -> list:
+    """Merge adjacent same-speaker diarization segments into coherent turns."""
+    out: list[dict] = []
+    for d in sorted(diar, key=lambda x: x["start"]):
+        if out and d["speaker"] == out[-1]["speaker"] and \
+                d["start"] - out[-1]["end"] <= gap:
+            out[-1]["end"] = max(out[-1]["end"], d["end"])
+        else:
+            out.append(dict(d))
+    return [d for d in out if d["end"] - d["start"] >= min_dur]
 
-    # 3. diarize (who spoke when) — needs HF token
+
+def _slice(wav: Path, start: float, end: float, out: Path, ffmpeg: str) -> None:
+    # -ss/-to AFTER -i => accurate cut on the input timeline
+    subprocess.run([ffmpeg, "-y", "-i", str(wav), "-ss", str(start),
+                    "-to", str(end), "-ac", "1", "-ar", "16000", str(out)],
+                   check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def _transcribe_by_turns(asr, wav, diar, cfg, lang) -> list:
+    """Diarize-first: one ASR pass per speaker turn (no Whisper-timestamp
+    dependency, text maps cleanly to a speaker)."""
+    sc = cfg.get("segment", {})
+    merged = _merge_diar(diar, sc.get("merge_gap_s", 0.75), sc.get("min_turn_s", 0.5))
+    ff = cfg.get("download", {}).get("ffmpeg_path", "ffmpeg")
+    log.info("transcribing %d speaker turns...", len(merged))
+    t0 = time.perf_counter()
+    turns = []
+    for i, seg in enumerate(merged):
+        tmp = Path(tempfile.gettempdir()) / f"_callas_slice_{i}.wav"
+        _slice(wav, seg["start"], seg["end"], tmp, ff)
+        try:
+            text = transcribe._asr_text(asr, str(tmp), lang)
+        finally:
+            tmp.unlink(missing_ok=True)
+        if text:
+            turns.append({"turn_index": len(turns), "speaker": seg["speaker"],
+                          "start": seg["start"], "end": seg["end"], "text": text})
+        if (i + 1) % 5 == 0 or i + 1 == len(merged):
+            log.info("  %d/%d turns (%.0fs)", i + 1, len(merged),
+                     time.perf_counter() - t0)
+    log.info("transcribed %d turns in %.1fs", len(turns), time.perf_counter() - t0)
+    return turns
+
+
+def _after_audio(vid, wav, url, cfg, paths, do_diarize) -> dict:
+    """Diarize first (reliable speaker turns), then transcribe each turn."""
+    device = get_device(cfg.get("device", "auto"))
+    lang = cfg.get("transcribe", {}).get("language", "th")
+
+    # 2. diarize (who spoke when) — needs HF token
     diar = []
     if do_diarize and os.environ.get("HF_TOKEN"):
         log.info("diarizing...")
@@ -62,13 +103,21 @@ def _after_audio(vid, wav, url, cfg, paths, do_diarize) -> dict:
         pipe = diarize._load_pipeline(cfg)
         diarize.diarize_one(pipe, wav, cfg, rttm)
         diar = segment.parse_rttm(rttm)
-        log.info("diarized in %.1fs", time.perf_counter() - t0)
+        log.info("diarized in %.1fs (%d raw segments)", time.perf_counter() - t0, len(diar))
     elif do_diarize:
-        log.warning("no HF_TOKEN set -> skipping diarization (single speaker). "
+        log.warning("no HF_TOKEN set -> single speaker, no caller/victim split. "
                     "Set HF_TOKEN to separate who-speaks-to-whom.")
 
-    # 4. merge into speaker turns
-    turns = segment.segment_one(asr_json, diar, cfg)
+    # 3. transcribe
+    asr = transcribe._build_pipeline(cfg, device)
+    if diar:
+        turns = _transcribe_by_turns(asr, wav, diar, cfg, lang)
+    else:
+        log.info("transcribing whole clip (single speaker)...")
+        t0 = time.perf_counter()
+        asr_segs = transcribe._asr_segments(asr, wav, lang)
+        turns = segment.segment_one({"video_id": vid, "segments": {"asr": asr_segs}}, [], cfg)
+        log.info("transcribed in %.1fs", time.perf_counter() - t0)
 
     # 5. map pyannote SPEAKER_xx -> readable A / B / C (order of first speech)
     labels: dict[str, str] = {}

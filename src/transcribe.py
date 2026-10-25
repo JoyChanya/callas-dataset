@@ -92,6 +92,21 @@ def _asr_segments(asr, wav: Path, language: str) -> list[dict]:
     return out
 
 
+_GEN = {
+    "condition_on_prev_tokens": False, "no_repeat_ngram_size": 3,
+    "compression_ratio_threshold": 2.4, "logprob_threshold": -1.0,
+    "no_speech_threshold": 0.6, "temperature": (0.0, 0.2, 0.4, 0.6, 0.8, 1.0),
+}
+
+
+def _asr_text(asr, audio, language: str) -> str:
+    """Plain transcript of a short audio slice (no timestamps needed — the
+    speaker turn's time comes from diarization)."""
+    gen = {"language": language, "task": "transcribe", **_GEN}
+    res = asr(audio, return_timestamps=False, generate_kwargs=gen)
+    return (res.get("text") or "").strip()
+
+
 def _is_oom(exc: Exception) -> bool:
     s = str(exc).lower()
     return "out of memory" in s or "mps backend out of memory" in s
