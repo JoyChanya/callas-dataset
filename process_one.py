@@ -25,7 +25,9 @@ import re
 import time
 from pathlib import Path
 
-from src import diarize, download, segment, transcribe
+import pandas as pd
+
+from src import clean, diarize, download, segment, transcribe
 from src.prelabel import classify_rules, load_keywords
 from src.utils import (done, extract_video_id, get_device, get_logger,
                        load_config, paths_from_config, setup_logging, write_json)
@@ -76,10 +78,22 @@ def _after_audio(vid, wav, url, cfg, paths, do_diarize) -> dict:
             labels[spk] = f"Speaker {chr(ord('A') + len(labels))}"
         t["who"] = labels[spk]
 
-    # 6. weak scam hint (keyword rules) — who looks like the scammer
+    # 6. scam hint + roles (keyword rules) — who is the caller/scammer vs victim
     kw = load_keywords(cfg.get("prelabel", {}).get("keywords_file", "labels/keywords.yaml"))
     info = classify_rules(turns, kw)
-    scammer_who = labels.get(info.get("scammer_speaker"))
+    scammer_spk = info.get("scammer_speaker")
+    scammer_who = labels.get(scammer_spk)
+
+    # 7. preprocess: mask PII + tag each turn with a role
+    cc = cfg.get("clean", {})
+    masker = clean._NameMasker(cc.get("ner_engine", "thainer")) \
+        if cc.get("mask_person_name", True) else None
+    for t in turns:
+        t["text_clean"] = clean.clean_text(t["text"], masker, cc)
+        if len(labels) >= 2 and scammer_spk:
+            t["role"] = "scammer" if t["speaker"] == scammer_spk else "victim"
+        else:
+            t["role"] = ""  # single speaker or no guess -> leave for human
 
     return {"video_id": vid, "url": url, "turns": turns, "labels": labels,
             "n_speakers": len(labels), "guess": info, "scammer_who": scammer_who}
@@ -139,16 +153,62 @@ def process(url: str, cfg: dict, paths, do_diarize: bool = True,
 
 def render(res: dict) -> str:
     g = res["guess"]
+    roles = {t["who"]: t["role"] for t in res["turns"] if t.get("role")}
+    rolemap = "   ".join(f"{who} = {r}" for who, r in roles.items())
     head = [
         f"# {res['url']}",
         f"speakers: {res['n_speakers']}   turns: {len(res['turns'])}",
         f"scam guess: is_scam={g['is_scam']} type={g['scam_type']}"
-        + (f"   likely scammer: {res['scammer_who']}" if res['scammer_who'] else ""),
-        "(labels are a weak keyword guess — verify by reading)",
+        + (f"   caller/scammer: {res['scammer_who']}" if res['scammer_who'] else ""),
+        f"roles: {rolemap}" if rolemap else "roles: (needs HF token + 2 speakers)",
+        "(auto guess — verify by reading)",
         "",
     ]
-    body = [f"{_fmt(t)}{t['who']}: {t['text']}" for t in res["turns"]]
+    body = [f"{_fmt(t)}{t['who']}"
+            + (f" ({t['role']})" if t.get("role") else "")
+            + f": {t['text']}" for t in res["turns"]]
     return "\n".join(head + body)
+
+
+def save_dataset(res: dict, paths) -> "object":
+    """Append this clip's preprocessed (masked) rows to a growing dataset.
+
+    data/out/dataset.csv       one row per turn (text_masked, role, labels)
+    data/out/conversations.csv one row per clip (turns joined)
+    Re-processing a clip refreshes its rows (keyed by clip id).
+    """
+    out = paths.data / "out"
+    out.mkdir(parents=True, exist_ok=True)
+    vid, g = res["video_id"], res["guess"]
+
+    rows = [{
+        "id": f"{vid}_{t['turn_index']:03d}", "clip": res["url"],
+        "turn_index": t["turn_index"], "speaker": t["who"],
+        "role": t.get("role", ""), "text": t["text_clean"],
+        "is_scam": g["is_scam"], "scam_type": g["scam_type"],
+    } for t in res["turns"]]
+    df = pd.DataFrame(rows)
+    p = out / "dataset.csv"
+    if p.exists():
+        old = pd.read_csv(p, dtype={"id": str})
+        old = old[~old["id"].str.startswith(f"{vid}_")]
+        df = pd.concat([old, df], ignore_index=True)
+    df.to_csv(p, index=False, encoding="utf-8-sig")
+
+    conv_text = "\n".join(f"[{t.get('role') or t['who']}] {t['text_clean']}"
+                          for t in res["turns"])
+    crow = {"clip": res["url"], "is_scam": g["is_scam"],
+            "scam_type": g["scam_type"], "n_turns": len(res["turns"]),
+            "scammer": res.get("scammer_who") or "", "text": conv_text}
+    cp = out / "conversations.csv"
+    if cp.exists():
+        oc = pd.read_csv(cp)
+        oc = oc[oc["clip"] != res["url"]]
+        cdf = pd.concat([oc, pd.DataFrame([crow])], ignore_index=True)
+    else:
+        cdf = pd.DataFrame([crow])
+    cdf.to_csv(cp, index=False, encoding="utf-8-sig")
+    return p
 
 
 def main() -> None:
@@ -181,8 +241,11 @@ def main() -> None:
     (out_dir / f"{res['video_id']}.txt").write_text(text, encoding="utf-8-sig")
     write_json(out_dir / f"{res['video_id']}.json", res)
 
+    ds = save_dataset(res, paths)
+
     print("\n" + text + "\n")
-    print(f"saved -> {out_dir / (res['video_id'] + '.txt')}")
+    print(f"transcript -> {out_dir / (res['video_id'] + '.txt')}")
+    print(f"dataset    -> {ds}  (appends one row per turn; grows as you add clips)")
 
 
 if __name__ == "__main__":
