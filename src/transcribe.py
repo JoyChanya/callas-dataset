@@ -100,10 +100,11 @@ _GEN = {
 
 
 def _asr_text(asr, audio, language: str) -> str:
-    """Plain transcript of a short audio slice (no timestamps needed — the
-    speaker turn's time comes from diarization)."""
+    """Plain transcript of one speaker-turn slice. We don't use the timestamps
+    (the turn's time comes from diarization), but return_timestamps must be True
+    so Whisper's long-form path works on slices longer than 30 s."""
     gen = {"language": language, "task": "transcribe", **_GEN}
-    res = asr(audio, return_timestamps=False, generate_kwargs=gen)
+    res = asr(audio, return_timestamps=True, generate_kwargs=gen)
     return (res.get("text") or "").strip()
 
 
