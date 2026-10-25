@@ -127,25 +127,22 @@ def _after_audio(vid, wav, url, cfg, paths, do_diarize) -> dict:
             labels[spk] = f"Speaker {chr(ord('A') + len(labels))}"
         t["who"] = labels[spk]
 
-    # 6. scam hint + roles (keyword rules) — who is the caller/scammer vs victim
+    # 6. conversation-level scam guess (keyword rules): is_scam + scam_type
     kw = load_keywords(cfg.get("prelabel", {}).get("keywords_file", "labels/keywords.yaml"))
     info = classify_rules(turns, kw)
-    scammer_spk = info.get("scammer_speaker")
-    scammer_who = labels.get(scammer_spk)
 
-    # 7. preprocess: mask PII + tag each turn with a role
+    # 7. preprocess: mask PII. Speaker A/B come from diarization (reliable);
+    #    scammer/victim/narrator is left BLANK for human review — the keyword
+    #    guess is unreliable (scam-baiters use scam vocab too).
     cc = cfg.get("clean", {})
     masker = clean._NameMasker(cc.get("ner_engine", "thainer")) \
         if cc.get("mask_person_name", True) else None
     for t in turns:
         t["text_clean"] = clean.clean_text(t["text"], masker, cc)
-        if len(labels) >= 2 and scammer_spk:
-            t["role"] = "scammer" if t["speaker"] == scammer_spk else "victim"
-        else:
-            t["role"] = ""  # single speaker or no guess -> leave for human
+        t["role"] = ""
 
     return {"video_id": vid, "url": url, "turns": turns, "labels": labels,
-            "n_speakers": len(labels), "guess": info, "scammer_who": scammer_who}
+            "n_speakers": len(labels), "guess": info, "scammer_who": None}
 
 
 def process(url: str, cfg: dict, paths, do_diarize: bool = True,
@@ -202,20 +199,14 @@ def process(url: str, cfg: dict, paths, do_diarize: bool = True,
 
 def render(res: dict) -> str:
     g = res["guess"]
-    roles = {t["who"]: t["role"] for t in res["turns"] if t.get("role")}
-    rolemap = "   ".join(f"{who} = {r}" for who, r in roles.items())
     head = [
         f"# {res['url']}",
         f"speakers: {res['n_speakers']}   turns: {len(res['turns'])}",
-        f"scam guess: is_scam={g['is_scam']} type={g['scam_type']}"
-        + (f"   caller/scammer: {res['scammer_who']}" if res['scammer_who'] else ""),
-        f"roles: {rolemap}" if rolemap else "roles: (needs HF token + 2 speakers)",
-        "(auto guess — verify by reading)",
+        f"scam guess: is_scam={g['is_scam']} type={g['scam_type']}  (conversation-level, draft)",
+        "speakers A/B are from diarization; label scammer / victim / narrator yourself",
         "",
     ]
-    body = [f"{_fmt(t)}{t['who']}"
-            + (f" ({t['role']})" if t.get("role") else "")
-            + f": {t['text']}" for t in res["turns"]]
+    body = [f"{_fmt(t)}{t['who']}: {t['text']}" for t in res["turns"]]
     return "\n".join(head + body)
 
 
