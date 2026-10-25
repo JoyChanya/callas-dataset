@@ -21,7 +21,8 @@ from src.utils import (
 log = get_logger("download")
 
 
-def _ydl_opts(dl: dict, paths: Paths, cookie: str | None = None) -> dict:
+def _ydl_opts(dl: dict, paths: Paths, cookie: str | None = None,
+              player_client: list | None = None) -> dict:
     opts = {
         "format": "bestaudio/best",
         # outtmpl is just the name; `paths` sets the dir per output type so
@@ -40,6 +41,8 @@ def _ydl_opts(dl: dict, paths: Paths, cookie: str | None = None) -> dict:
     }
     if cookie:
         opts["cookiefile"] = cookie
+    if player_client:
+        opts["extractor_args"] = {"youtube": {"player_client": player_client}}
     return opts
 
 
@@ -61,7 +64,8 @@ def download_one(video_id: str, url: str, cfg: dict, paths: Paths) -> dict:
         return result
 
     target = url or video_url(video_id)  # TikTok/YouTube URL from videos.csv
-    with yt_dlp.YoutubeDL(_ydl_opts(dl, paths, cookiefile(cfg))) as ydl:
+    pc = (cfg.get("youtube") or {}).get("player_client")
+    with yt_dlp.YoutubeDL(_ydl_opts(dl, paths, cookiefile(cfg), pc)) as ydl:
         info = ydl.extract_info(target, download=True)
 
     # subtitle availability (from metadata, independent of what downloaded)

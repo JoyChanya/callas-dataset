@@ -55,6 +55,14 @@ def process(url: str, cfg: dict, paths, do_diarize: bool = True) -> dict:
                 "in to youtube.com, upload it, and set youtube.cookiefile in "
                 "config.yaml.\nIn the Colab notebook, run the 'YouTube cookies' "
                 "cell.\n")
+        if "Requested format is not available" in m:
+            raise SystemExit(
+                "\nYouTube didn't offer a downloadable audio format to this "
+                "client.\nTry: (1) make sure you ran the cookies cell, "
+                "(2) update yt-dlp (`pip install -U yt-dlp`), "
+                "(3) try another clip.\n"
+                "config.yaml youtube.player_client already tries several "
+                "clients.\n")
         raise
     wav = paths.raw_audio / f"{vid}.wav"
     if not wav.exists():  # id mismatch (non-standard url) -> take newest wav

@@ -15,6 +15,9 @@ youtube:
   # Colab/cloud IPs), export a cookies.txt from a logged-in browser and put the
   # path here. Leave empty otherwise.
   cookiefile: ""
+  # yt-dlp player clients to try (fixes "Requested format is not available" on
+  # Colab). It falls through the list until one yields downloadable audio.
+  player_client: ["default", "web_safari", "mweb", "tv", "android"]
 
 # ---------------- Stage 1: search ----------------
 search:
