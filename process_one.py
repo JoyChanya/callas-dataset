@@ -44,7 +44,18 @@ def process(url: str, cfg: dict, paths, do_diarize: bool = True) -> dict:
     # 1. download audio -> 16 kHz mono wav
     log.info("downloading %s", url)
     t0 = time.perf_counter()
-    download.download_one(vid, url, cfg, paths)
+    try:
+        download.download_one(vid, url, cfg, paths)
+    except Exception as exc:
+        m = str(exc)
+        if "not a bot" in m or "Sign in to confirm" in m:
+            raise SystemExit(
+                "\nYouTube blocked the download with a bot-check (common on "
+                "Colab IPs).\nFix: export a cookies.txt from a browser logged "
+                "in to youtube.com, upload it, and set youtube.cookiefile in "
+                "config.yaml.\nIn the Colab notebook, run the 'YouTube cookies' "
+                "cell.\n")
+        raise
     wav = paths.raw_audio / f"{vid}.wav"
     if not wav.exists():  # id mismatch (non-standard url) -> take newest wav
         got = sorted(paths.raw_audio.glob("*.wav"), key=lambda p: p.stat().st_mtime)
