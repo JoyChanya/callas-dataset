@@ -17,7 +17,7 @@ python-crfsuite>=0.9      # backend for pythainlp thainer NER (name masking)
 torch>=2.2
 transformers>=4.40
 accelerate>=0.30
-pyannote.audio>=3.1
+pyannote.audio==3.1.1
 
 # --- optional ---
 gradio>=4.0        # review app
