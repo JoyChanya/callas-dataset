@@ -17,7 +17,7 @@ youtube:
   cookiefile: ""
   # yt-dlp player clients to try (fixes "Requested format is not available" on
   # Colab). It falls through the list until one yields downloadable audio.
-  player_client: ["default", "web_safari", "mweb", "tv", "android"]
+  player_client: ["web_safari", "mweb", "web"]
 
 # ---------------- Stage 1: search ----------------
 search:

@@ -21,12 +21,14 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import time
+from pathlib import Path
 
 from src import diarize, download, segment, transcribe
 from src.prelabel import classify_rules, load_keywords
-from src.utils import (extract_video_id, get_device, get_logger, load_config,
-                       paths_from_config, setup_logging, write_json)
+from src.utils import (done, extract_video_id, get_device, get_logger,
+                       load_config, paths_from_config, setup_logging, write_json)
 
 log = get_logger("process_one")
 
@@ -38,41 +40,8 @@ def _fmt(t) -> str:
     return f"[{a:.1f}-{b:.1f}] " if b is not None else f"[{a:.1f}] "
 
 
-def process(url: str, cfg: dict, paths, do_diarize: bool = True) -> dict:
-    vid = extract_video_id(url) or "clip"
-
-    # 1. download audio -> 16 kHz mono wav
-    log.info("downloading %s", url)
-    t0 = time.perf_counter()
-    try:
-        download.download_one(vid, url, cfg, paths)
-    except Exception as exc:
-        m = str(exc)
-        if "not a bot" in m or "Sign in to confirm" in m:
-            raise SystemExit(
-                "\nYouTube blocked the download with a bot-check (common on "
-                "Colab IPs).\nFix: export a cookies.txt from a browser logged "
-                "in to youtube.com, upload it, and set youtube.cookiefile in "
-                "config.yaml.\nIn the Colab notebook, run the 'YouTube cookies' "
-                "cell.\n")
-        if "Requested format is not available" in m:
-            raise SystemExit(
-                "\nYouTube didn't offer a downloadable audio format to this "
-                "client.\nTry: (1) make sure you ran the cookies cell, "
-                "(2) update yt-dlp (`pip install -U yt-dlp`), "
-                "(3) try another clip.\n"
-                "config.yaml youtube.player_client already tries several "
-                "clients.\n")
-        raise
-    wav = paths.raw_audio / f"{vid}.wav"
-    if not wav.exists():  # id mismatch (non-standard url) -> take newest wav
-        got = sorted(paths.raw_audio.glob("*.wav"), key=lambda p: p.stat().st_mtime)
-        if not got:
-            raise SystemExit("download produced no audio")
-        wav = got[-1]
-        vid = wav.stem
-    log.info("audio ready (%.1fs): %s", time.perf_counter() - t0, wav.name)
-
+def _after_audio(vid, wav, url, cfg, paths, do_diarize) -> dict:
+    """Shared tail: transcribe -> diarize -> turns -> speaker labels -> hint."""
     # 2. transcribe
     device = get_device(cfg.get("device", "auto"))
     asr = transcribe._build_pipeline(cfg, device)
@@ -116,6 +85,58 @@ def process(url: str, cfg: dict, paths, do_diarize: bool = True) -> dict:
             "n_speakers": len(labels), "guess": info, "scammer_who": scammer_who}
 
 
+def process(url: str, cfg: dict, paths, do_diarize: bool = True,
+            audio: str | None = None) -> dict:
+    # 1. get a 16 kHz mono wav — from a local file (--audio) or by downloading
+    if audio:
+        src = Path(audio)
+        if not src.exists():
+            raise SystemExit(f"audio file not found: {audio}")
+        vid = re.sub(r"[^A-Za-z0-9_-]", "_", src.stem)[:40] or "clip"
+        wav = paths.raw_audio / f"{vid}.wav"
+        if not done(wav):
+            dlc = cfg.get("download", {})
+            download._to_wav(src, wav, dlc.get("audio_sample_rate", 16000),
+                             dlc.get("audio_channels", 1),
+                             dlc.get("ffmpeg_path", "ffmpeg"))
+        url = url or src.name
+        log.info("using local audio: %s -> %s", src.name, wav.name)
+        return _after_audio(vid, wav, url, cfg, paths, do_diarize)
+
+    vid = extract_video_id(url) or "clip"
+    log.info("downloading %s", url)
+    t0 = time.perf_counter()
+    try:
+        download.download_one(vid, url, cfg, paths)
+    except Exception as exc:
+        m = str(exc)
+        if "not a bot" in m or "Sign in to confirm" in m:
+            raise SystemExit(
+                "\nYouTube blocked the download with a bot-check (common on "
+                "Colab IPs).\nFix: export a cookies.txt from a browser logged "
+                "in to youtube.com, upload it, and set youtube.cookiefile in "
+                "config.yaml.\nIn the Colab notebook, run the 'YouTube cookies' "
+                "cell.\n")
+        if "Requested format is not available" in m:
+            raise SystemExit(
+                "\nYouTube didn't offer a downloadable audio format to this "
+                "client.\nTry: (1) make sure you ran the cookies cell, "
+                "(2) update yt-dlp (`pip install -U yt-dlp`), "
+                "(3) try another clip.\n"
+                "config.yaml youtube.player_client already tries several "
+                "clients.\n")
+        raise
+    wav = paths.raw_audio / f"{vid}.wav"
+    if not wav.exists():  # id mismatch (non-standard url) -> take newest wav
+        got = sorted(paths.raw_audio.glob("*.wav"), key=lambda p: p.stat().st_mtime)
+        if not got:
+            raise SystemExit("download produced no audio")
+        wav = got[-1]
+        vid = wav.stem
+    log.info("audio ready (%.1fs): %s", time.perf_counter() - t0, wav.name)
+    return _after_audio(vid, wav, url, cfg, paths, do_diarize)
+
+
 def render(res: dict) -> str:
     g = res["guess"]
     head = [
@@ -132,12 +153,17 @@ def render(res: dict) -> str:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="One clip -> speaker-labeled transcript")
-    ap.add_argument("url", help="YouTube URL (or 11-char video id)")
+    ap.add_argument("url", nargs="?", default=None, help="YouTube URL (or 11-char video id)")
+    ap.add_argument("--audio", default=None,
+                    help="use a local audio/video file instead of downloading "
+                         "(sidesteps YouTube blocks on Colab)")
     ap.add_argument("--config", default="config.yaml")
     ap.add_argument("--device", default=None, help="cuda | mps | cpu")
     ap.add_argument("--model", default=None, help="override transcribe model")
     ap.add_argument("--no-diarize", action="store_true", help="skip speaker split")
     args = ap.parse_args()
+    if not args.url and not args.audio:
+        ap.error("give a YouTube URL, or --audio PATH to use a local file")
 
     cfg = load_config(args.config)
     if args.device:
@@ -147,7 +173,7 @@ def main() -> None:
     setup_logging(cfg.get("log_level", "INFO"))
     paths = paths_from_config(cfg)
 
-    res = process(args.url, cfg, paths, do_diarize=not args.no_diarize)
+    res = process(args.url, cfg, paths, do_diarize=not args.no_diarize, audio=args.audio)
 
     out_dir = paths.data / "out"
     out_dir.mkdir(parents=True, exist_ok=True)
