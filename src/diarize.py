@@ -79,9 +79,33 @@ def diarize_one(pipe, wav: Path, cfg: dict, out_path: Path) -> None:
         pipe.to(torch.device("cpu"))
         diar = pipe(str(wav), **kw)
 
+    # pyannote 3.x returns an Annotation (.write_rttm); 4.x returns a wrapper
+    # (DiarizeOutput) whose Annotation is an attribute — find it robustly.
+    ann = diar
+    if not hasattr(ann, "write_rttm") and not hasattr(ann, "itertracks"):
+        for name in ("speaker_diarization", "diarization", "annotation"):
+            cand = getattr(diar, name, None)
+            if cand is not None and (hasattr(cand, "itertracks") or hasattr(cand, "write_rttm")):
+                ann = cand
+                break
+        else:
+            for name in dir(diar):
+                if name.startswith("_"):
+                    continue
+                cand = getattr(diar, name, None)
+                if hasattr(cand, "itertracks"):
+                    ann = cand
+                    break
+
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", encoding="utf-8") as f:
-        diar.write_rttm(f)
+        if hasattr(ann, "write_rttm"):
+            ann.write_rttm(f)
+        else:  # write RTTM from the Annotation's tracks
+            fid = out_path.stem
+            for seg, _, label in ann.itertracks(yield_label=True):
+                f.write(f"SPEAKER {fid} 1 {seg.start:.3f} {seg.duration:.3f} "
+                        f"<NA> <NA> {label} <NA> <NA>\n")
 
 
 def run(cfg: dict, paths: Paths, limit: int | None = None) -> None:
