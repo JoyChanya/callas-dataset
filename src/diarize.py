@@ -30,6 +30,13 @@ def _progress_hook():
 
 def _load_pipeline(cfg: dict):
     import torch
+    import torchaudio
+
+    # older pyannote calls torchaudio.set_audio_backend, removed in new
+    # torchaudio — shim as a no-op so the import doesn't crash
+    if not hasattr(torchaudio, "set_audio_backend"):
+        torchaudio.set_audio_backend = lambda *a, **k: None
+
     from pyannote.audio import Pipeline
 
     token = os.environ.get("HF_TOKEN")
@@ -37,7 +44,7 @@ def _load_pipeline(cfg: dict):
         raise RuntimeError("HF_TOKEN not set (needed for pyannote). See .env.example")
 
     d = cfg.get("diarize", {})
-    model = d.get("model", "pyannote/speaker-diarization-3.1")
+    model = d.get("model", "pyannote/speaker-diarization-community-1")
     try:  # newer pyannote.audio uses token=; older used use_auth_token=
         pipe = Pipeline.from_pretrained(model, token=token)
     except TypeError:
