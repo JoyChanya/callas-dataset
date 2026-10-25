@@ -60,10 +60,13 @@ def _load_pipeline(cfg: dict):
 def diarize_one(pipe, wav: Path, cfg: dict, out_path: Path) -> None:
     d = cfg.get("diarize", {})
     kw = {}
-    if d.get("min_speakers") is not None:
-        kw["min_speakers"] = d["min_speakers"]
-    if d.get("max_speakers") is not None:
-        kw["max_speakers"] = d["max_speakers"]
+    if d.get("num_speakers") is not None:   # exact count forces the split
+        kw["num_speakers"] = d["num_speakers"]
+    else:
+        if d.get("min_speakers") is not None:
+            kw["min_speakers"] = d["min_speakers"]
+        if d.get("max_speakers") is not None:
+            kw["max_speakers"] = d["max_speakers"]
 
     hook = _progress_hook()
     try:

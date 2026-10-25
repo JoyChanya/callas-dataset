@@ -75,6 +75,10 @@ diarize:
   # community-1 is pyannote's current all-in-one diarizer (works with recent
   # torchaudio). Accept its terms on HF. Older: pyannote/speaker-diarization-3.1
   model: pyannote/speaker-diarization-community-1
+  # scam calls are 1-on-1 -> force exactly 2 speakers (stops pyannote collapsing
+  # both voices into one giant "Speaker A"). Set to null for multi-party clips
+  # (then min/max_speakers below apply instead).
+  num_speakers: 2
   min_speakers: 2
   max_speakers: 4
 
